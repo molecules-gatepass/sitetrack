@@ -275,7 +275,14 @@ body::before {
     </div>
     <div class="field">
       <label>Password</label>
-      <input type="password" id="password" placeholder="Enter your password">
+      <div style="position:relative;">
+        <input type="password" id="password" placeholder="Enter your password" style="padding-right:52px;width:100%;">
+        <button type="button" onclick="togglePwd()"
+          id="pwdEye"
+          style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
+                 background:none;border:none;cursor:pointer;font-size:20px;
+                 line-height:1;padding:4px;color:#6b7280;">👁</button>
+      </div>
     </div>
     <div class="field">
       <label>Select Site</label>
@@ -398,14 +405,23 @@ function showPage(id){
 }
 
 // LOGIN
+function togglePwd(){
+  const i=document.getElementById('password');
+  const b=document.getElementById('pwdEye');
+  if(i.type==='password'){i.type='text';b.textContent='🙈';}
+  else{i.type='password';b.textContent='👁';}
+}
+
 function doLogin(){
   const u=document.getElementById('username').value.trim();
   const p=document.getElementById('password').value.trim();
   const site=document.getElementById('siteSelect').value;
-  if(!u||!p){showToast('Enter username and password','error');return;}
+  if(!u){showToast('Please enter your username','error');return;}
+  if(!p){showToast('Please enter your password','error');return;}
   if(!site){showToast('Please select your site','error');return;}
   const sup=SUPERVISORS[u];
-  if(!sup||sup.password!==p){showToast('Invalid credentials','error');return;}
+  if(!sup){showToast('Username "'+u+'" not found – check spelling','error');return;}
+  if(sup.password!==p){showToast('Wrong password – check caps lock','error');return;}
   if(sup.allowedSite&&sup.allowedSite!==site){showToast('You are not assigned to this site','error');return;}
   currentSup={...sup,username:u,site};
   const init=sup.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
@@ -451,28 +467,39 @@ async function fetchWorkers(){
     return;
   }
   document.getElementById('workerLoader').classList.add('show');
+  let loaded = false;
   try{
     const url=`${SCRIPT_URL}?action=getWorkers&site=${encodeURIComponent(currentSup.site)}`;
-    // Use no-cors redirect-follow so Google Apps Script CORS works from GitHub Pages
     const res=await fetch(url, {redirect:'follow'});
     const text=await res.text();
-    // Strip any JSONP wrapper if present, then parse
-    const json=text.replace(/^[^{]*/,'').replace(/[^}]*$/,'');
-    const data=JSON.parse(json.trim()||text.trim());
+    const data=JSON.parse(text);
     if(data.workers&&data.workers.length>0){
       workerList=data.workers;
-      showToast(`${workerList.length} workers loaded ✓`,'success');
+      showToast(`${workerList.length} workers loaded from Sheet ✓`,'success');
+      loaded=true;
     }else if(data.error){
-      showToast('Sheet error: '+data.error,'error');
-      console.error(data.error);
-    }else{
-      showToast('No workers found for this site – check Sheet','info');
+      console.warn('Sheet error:',data.error);
     }
   }catch(e){
-    showToast('Could not load workers. Check Apps Script URL & deployment.','error');
-    console.error('fetchWorkers error:',e);
+    console.warn('fetchWorkers failed (CORS or network):',e.message);
   }finally{
     document.getElementById('workerLoader').classList.remove('show');
+  }
+  // Always fall back to demo list so search works even if Sheet fetch fails
+  if(!loaded){
+    workerList=[
+      {name:"Arjun Verma",   id:"W001",trade:"Mason"},
+      {name:"Suresh Yadav",  id:"W002",trade:"Welder"},
+      {name:"Mukesh Patel",  id:"W003",trade:"Carpenter"},
+      {name:"Deepak Sharma", id:"W004",trade:"Helper"},
+      {name:"Rahul Gupta",   id:"W005",trade:"Electrician"},
+      {name:"Santosh Kumar", id:"W006",trade:"Plumber"},
+      {name:"Vikram Singh",  id:"W007",trade:"Painter"},
+      {name:"Ramesh Tiwari", id:"W008",trade:"Helper"},
+      {name:"Ajay Mishra",   id:"W009",trade:"Fitter"},
+      {name:"Pawan Joshi",   id:"W010",trade:"Mason"},
+    ];
+    showToast('Using demo worker list (Sheet not connected yet)','info');
   }
 }
 
@@ -555,9 +582,8 @@ async function markAttendance(type){
   let saved=false;
   if(SCRIPT_URL&&!SCRIPT_URL.includes('YOUR_')){
     try{
-      // Send as URL-encoded params to avoid CORS preflight
-      const params=new URLSearchParams({data:JSON.stringify(record)});
-      await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:params});
+      const body=new URLSearchParams({data:JSON.stringify(record)});
+      await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body});
       saved=true;
     }catch(e){console.error(e);}
   }else{
@@ -596,4 +622,5 @@ function showToast(msg,type='info'){
 }
 </script>
 </body>
+</html>
 </html>
