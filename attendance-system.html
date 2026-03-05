@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>SiteTrack – Attendance</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #22263a;
+  --border: #2e3347;
+  --accent: #4f8ef7;
+  --accent2: #6c63ff;
+  --green: #22c55e;
+  --red: #ef4444;
+  --text: #e8eaf6;
+  --muted: #6b7280;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.035'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 0;
+}
+.page { display: none; position: relative; z-index: 1; }
+.page.active { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* LOGIN */
+#loginPage {
+  align-items: center; justify-content: center; padding: 24px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(79,142,247,0.12) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 80%, rgba(108,99,255,0.10) 0%, transparent 60%);
+}
+.login-card {
+  width: 100%; max-width: 400px;
+  background: var(--surface);
+  border-radius: 24px;
+  box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,0.5);
+  padding: 36px 28px 32px;
+  animation: slideUp .5s cubic-bezier(.22,.68,0,1.2) both;
+}
+@keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+.brand { text-align: center; margin-bottom: 32px; }
+.brand-badge {
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 100px; padding: 8px 18px 8px 10px; margin-bottom: 20px;
+}
+.brand-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.brand-name { font-weight: 800; font-size: 16px; letter-spacing: -.3px; }
+.brand h2 { font-size: 26px; font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px; }
+.brand p  { color: var(--muted); font-size: 14px; }
+.field { margin-bottom: 16px; }
+.field label {
+  display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+  letter-spacing: .5px; text-transform: uppercase; margin-bottom: 8px;
+}
+.field input, .field select {
+  width: 100%; padding: 13px 16px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; color: var(--text); font-family: inherit; font-size: 15px;
+  outline: none; transition: border-color .2s, box-shadow .2s; -webkit-appearance: none;
+}
+.field input:focus, .field select:focus {
+  border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.15);
+}
+.field select option { background: #1a1d27; }
+.btn-login {
+  width: 100%; padding: 15px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+  border: none; border-radius: 12px; color: #fff;
+  font-family: inherit; font-size: 16px; font-weight: 700;
+  cursor: pointer; margin-top: 8px; transition: opacity .2s, transform .15s;
+  position: relative; overflow: hidden;
+}
+.btn-login::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,.1) 0%, transparent 100%);
+}
+.btn-login:active { transform: scale(.98); opacity: .9; }
+.demo-note {
+  margin-top: 20px; padding: 12px 14px;
+  background: rgba(79,142,247,.08); border: 1px solid rgba(79,142,247,.2);
+  border-radius: 10px; font-size: 12px; color: var(--muted); line-height: 1.6;
+}
+.demo-note strong { color: var(--accent); }
+
+/* ATTENDANCE */
+#attendancePage { background: var(--bg); }
+.top-header {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 14px 20px; display: flex; align-items: center; gap: 12px;
+  position: sticky; top: 0; z-index: 50;
+}
+.header-avatar {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 15px; flex-shrink: 0;
+}
+.header-info { flex: 1; min-width: 0; }
+.header-name { font-weight: 700; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header-site { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.site-pill {
+  background: rgba(79,142,247,.15); color: var(--accent);
+  padding: 4px 10px; border-radius: 100px; font-size: 11px; font-weight: 700;
+  white-space: nowrap; border: 1px solid rgba(79,142,247,.25);
+}
+.btn-logout { background: none; border: none; color: var(--muted); font-size: 20px; cursor: pointer; padding: 4px; transition: color .2s; }
+.btn-logout:hover { color: var(--red); }
+.att-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+/* Clock */
+.clock-block {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 18px; padding: 20px; text-align: center; position: relative; overflow: hidden;
+}
+.clock-block::before {
+  content: ''; position: absolute; top: -30px; left: 50%; transform: translateX(-50%);
+  width: 160px; height: 80px;
+  background: radial-gradient(circle, rgba(79,142,247,.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+.clock-time {
+  font-family: 'DM Mono', monospace; font-size: 40px; font-weight: 500;
+  letter-spacing: 2px; color: var(--text); text-shadow: 0 0 30px rgba(79,142,247,.4);
+}
+.clock-date { font-size: 13px; color: var(--muted); margin-top: 4px; }
+
+/* Search */
+.section-label { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+.search-outer { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px; }
+.search-wrap { position: relative; }
+.search-input {
+  width: 100%; padding: 13px 44px 13px 16px;
+  background: var(--surface2); border: 1.5px solid var(--border);
+  border-radius: 12px; color: var(--text); font-family: inherit; font-size: 15px;
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,142,247,.12); }
+.search-input::placeholder { color: var(--muted); }
+.search-clear {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--muted); font-size: 16px;
+  cursor: pointer; padding: 4px; line-height: 1;
+}
+.dropdown {
+  margin-top: 6px; background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden; max-height: 230px; overflow-y: auto;
+  display: none; box-shadow: 0 8px 32px rgba(0,0,0,.4);
+}
+.dropdown.open { display: block; }
+.dropdown::-webkit-scrollbar { width: 4px; }
+.dropdown::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.drop-item {
+  padding: 11px 16px; cursor: pointer; border-bottom: 1px solid var(--border);
+  transition: background .15s; display: flex; align-items: center; gap: 10px;
+}
+.drop-item:last-child { border-bottom: none; }
+.drop-item:hover, .drop-item:active { background: rgba(79,142,247,.1); }
+.drop-avatar {
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; flex-shrink: 0;
+}
+.drop-name { font-size: 14px; font-weight: 600; }
+.drop-meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.drop-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+.worker-card {
+  margin-top: 12px; padding: 14px 16px;
+  background: rgba(79,142,247,.08); border: 1.5px solid rgba(79,142,247,.3);
+  border-radius: 14px; display: none; align-items: center; gap: 12px;
+  animation: fadeIn .2s ease;
+}
+@keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+.worker-card.show { display: flex; }
+.wc-avatar { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 18px; flex-shrink: 0; }
+.wc-info { flex: 1; min-width: 0; }
+.wc-name { font-weight: 700; font-size: 16px; color: var(--accent); }
+.wc-sub  { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.wc-clear {
+  background: rgba(239,68,68,.15); border: 1px solid rgba(239,68,68,.3);
+  border-radius: 8px; color: var(--red); font-size: 16px;
+  width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+}
+
+/* Loader */
+.loader-wrap { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 16px; gap: 8px; color: var(--muted); font-size: 13px; }
+.loader-wrap.show { display: flex; }
+.spin { width: 22px; height: 22px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* IN/OUT */
+.action-block { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px; }
+.btn-row { display: flex; gap: 10px; }
+.btn-in, .btn-out {
+  flex: 1; padding: 18px 12px; border: none; border-radius: 14px;
+  font-family: inherit; font-size: 17px; font-weight: 800;
+  cursor: pointer; transition: all .2s; position: relative; overflow: hidden;
+}
+.btn-in  { background: linear-gradient(135deg,#15803d,var(--green)); color:#fff; }
+.btn-out { background: linear-gradient(135deg,#b91c1c,var(--red));   color:#fff; }
+.btn-in::after, .btn-out::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg,rgba(255,255,255,.12) 0%,transparent 60%);
+}
+.btn-in:active  { transform:scale(.97); filter:brightness(.9); }
+.btn-out:active { transform:scale(.97); filter:brightness(.9); }
+.btn-in:disabled, .btn-out:disabled { background:var(--surface2); color:var(--muted); cursor:not-allowed; transform:none; filter:none; }
+.btn-in:disabled::after, .btn-out:disabled::after { display:none; }
+.saving-wrap { display:inline-flex; align-items:center; gap:8px; }
+.btn-spin { width:15px; height:15px; border:2px solid rgba(255,255,255,.35); border-top-color:#fff; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+
+/* Log */
+.log-block { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px; }
+.log-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+.log-count { background:var(--surface2); border:1px solid var(--border); border-radius:100px; padding:2px 10px; font-size:12px; font-weight:700; font-family:'DM Mono',monospace; color:var(--muted); }
+.log-list { display:flex; flex-direction:column; gap:7px; }
+.log-empty { text-align:center; padding:24px; color:var(--muted); font-size:13px; }
+.log-row { display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--surface2); border-radius:10px; border:1px solid var(--border); animation:fadeIn .25s ease; }
+.log-badge { padding:3px 8px; border-radius:6px; font-size:11px; font-weight:800; flex-shrink:0; }
+.badge-in  { background:rgba(34,197,94,.15);  color:var(--green); border:1px solid rgba(34,197,94,.3); }
+.badge-out { background:rgba(239,68,68,.15);  color:var(--red);   border:1px solid rgba(239,68,68,.3); }
+.log-name  { flex:1; font-size:13px; font-weight:600; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.log-time  { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); flex-shrink:0; }
+
+/* Toast */
+.toast-container { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; align-items:center; gap:8px; pointer-events:none; }
+.toast { padding:12px 20px; border-radius:12px; font-size:14px; font-weight:600; box-shadow:0 4px 24px rgba(0,0,0,.5); transform:translateY(20px); opacity:0; transition:all .3s cubic-bezier(.22,.68,0,1.2); white-space:nowrap; max-width:calc(100vw - 48px); overflow:hidden; text-overflow:ellipsis; }
+.toast.show { transform:translateY(0); opacity:1; }
+.toast.success { background:#15803d; color:#fff; }
+.toast.error   { background:#b91c1c; color:#fff; }
+.toast.info    { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+
+/* Avatar colours */
+.c1{background:rgba(79,142,247,.2);color:#4f8ef7}
+.c2{background:rgba(108,99,255,.2);color:#6c63ff}
+.c3{background:rgba(34,197,94,.2);color:#22c55e}
+.c4{background:rgba(251,146,60,.2);color:#fb923c}
+.c5{background:rgba(232,121,249,.2);color:#e879f9}
+.c6{background:rgba(34,211,238,.2);color:#22d3ee}
+</style>
+</head>
+<body>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage" class="page active">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-badge">
+        <div class="brand-icon">🏗️</div>
+        <span class="brand-name">SiteTrack</span>
+      </div>
+      <h2>Supervisor Login</h2>
+      <p>Mark attendance on the go</p>
+    </div>
+    <div class="field">
+      <label>Username</label>
+      <input type="text" id="username" placeholder="Enter your username" autocomplete="off" autocapitalize="none">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="Enter your password">
+    </div>
+    <div class="field">
+      <label>Select Site</label>
+      <select id="siteSelect">
+        <option value="">— Choose your site —</option>
+        <option value="Site A">Site A</option>
+        <option value="Site B">Site B</option>
+        <option value="Site C">Site C</option>
+        <option value="Site D">Site D</option>
+      </select>
+    </div>
+    <button class="btn-login" onclick="doLogin()">Login →</button>
+    <div class="demo-note">
+      <strong>Demo:</strong> username <strong>sup1</strong> · password <strong>1234</strong><br>
+      Workers load automatically from your Google Sheet once URL is set.
+    </div>
+  </div>
+</div>
+
+<!-- ATTENDANCE PAGE -->
+<div id="attendancePage" class="page">
+  <div class="top-header">
+    <div class="header-avatar c1" id="headerAvatar">S</div>
+    <div class="header-info">
+      <div class="header-name" id="headerName">Supervisor</div>
+      <div class="header-site" id="headerSite">Site</div>
+    </div>
+    <span class="site-pill" id="headerPill">—</span>
+    <button class="btn-logout" title="Logout" onclick="doLogout()">⏻</button>
+  </div>
+
+  <div class="att-body">
+    <div class="clock-block">
+      <div class="clock-time" id="clockTime">00:00:00</div>
+      <div class="clock-date" id="clockDate">—</div>
+    </div>
+
+    <div class="search-outer">
+      <div class="section-label">Search &amp; Select Worker</div>
+      <div class="search-wrap">
+        <input class="search-input" type="text" id="workerSearch"
+          placeholder="Type worker name or ID…"
+          autocomplete="off" autocapitalize="words"
+          oninput="onSearch()" onfocus="onSearch()">
+        <button class="search-clear" onclick="clearSearch()">✕</button>
+        <div class="dropdown" id="dropdown"></div>
+      </div>
+      <div class="loader-wrap" id="workerLoader">
+        <div class="spin"></div>
+        <span>Loading workers from sheet…</span>
+      </div>
+      <div class="worker-card" id="workerCard">
+        <div class="wc-avatar c1" id="wcAvatar">?</div>
+        <div class="wc-info">
+          <div class="wc-name" id="wcName">—</div>
+          <div class="wc-sub"  id="wcSub">—</div>
+        </div>
+        <div class="wc-clear" onclick="clearWorker()">✕</div>
+      </div>
+    </div>
+
+    <div class="action-block">
+      <div class="section-label">Mark Attendance</div>
+      <div class="btn-row">
+        <button class="btn-in"  id="btnIn"  disabled onclick="markAttendance('IN')">✅ IN</button>
+        <button class="btn-out" id="btnOut" disabled onclick="markAttendance('OUT')">🚪 OUT</button>
+      </div>
+    </div>
+
+    <div class="log-block">
+      <div class="log-header">
+        <div class="section-label" style="margin:0">Today's Log</div>
+        <div class="log-count" id="logCount">0</div>
+      </div>
+      <div class="log-list" id="logList">
+        <div class="log-empty">No entries yet today</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ════════════════════════════════════════════
+//  ▶  STEP 1 – Paste your Apps Script URL here after deploying
+// ════════════════════════════════════════════
+const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwl7-cj5c12iZuJKO7xXYjq0zDJf54MfHw1TYLvs3uLXPmnEL-dnBrbqIDl_34WJAgzJw/exec";
+
+// ════════════════════════════════════════════
+//  ▶  STEP 2 – Edit supervisors as needed
+// ════════════════════════════════════════════
+const SUPERVISORS = {
+  "sup1":  { password: "ElecMTPL1",   name: "Samiran Das",  allowedSite: "" },
+  "sup2":  { password: "CivilMTPL2",   name: "Sourav Mondal",    allowedSite: "" },
+  "sup3":  { password: "CivilMTPL3",   name: "Rajesh Bera",  allowedSite: "" },
+  "admin": { password: "Admin@1",name: "Admin",         allowedSite: "" },
+};
+
+// ─── Runtime state ───
+let currentSup = null, selectedWorker = null, workerList = [], todayLog = [], clockInt = null;
+
+// Avatar colour
+const COLS = ['c1','c2','c3','c4','c5','c6'];
+function colFor(s){ let h=0; for(let c of s) h=(h*31+c.charCodeAt(0))&0xffff; return COLS[h%COLS.length]; }
+
+// Clock
+function startClock(){
+  function tick(){
+    const n=new Date();
+    document.getElementById('clockTime').textContent=n.toLocaleTimeString('en-IN',{hour12:false});
+    document.getElementById('clockDate').textContent=n.toLocaleDateString('en-IN',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  }
+  tick(); clockInt=setInterval(tick,1000);
+}
+
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// LOGIN
+function doLogin(){
+  const u=document.getElementById('username').value.trim();
+  const p=document.getElementById('password').value.trim();
+  const site=document.getElementById('siteSelect').value;
+  if(!u||!p){showToast('Enter username and password','error');return;}
+  if(!site){showToast('Please select your site','error');return;}
+  const sup=SUPERVISORS[u];
+  if(!sup||sup.password!==p){showToast('Invalid credentials','error');return;}
+  if(sup.allowedSite&&sup.allowedSite!==site){showToast('You are not assigned to this site','error');return;}
+  currentSup={...sup,username:u,site};
+  const init=sup.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const col=colFor(u);
+  document.getElementById('headerAvatar').textContent=init;
+  document.getElementById('headerAvatar').className=`header-avatar ${col}`;
+  document.getElementById('headerName').textContent=sup.name;
+  document.getElementById('headerSite').textContent=site;
+  document.getElementById('headerPill').textContent=site;
+  showPage('attendancePage');
+  startClock();
+  showToast(`Welcome, ${sup.name}!`,'success');
+  fetchWorkers();
+}
+
+function doLogout(){
+  clearInterval(clockInt);
+  currentSup=null; selectedWorker=null; workerList=[]; todayLog=[];
+  clearWorker();
+  document.getElementById('logList').innerHTML='<div class="log-empty">No entries yet today</div>';
+  document.getElementById('logCount').textContent='0';
+  document.getElementById('username').value='';
+  document.getElementById('password').value='';
+  showPage('loginPage');
+}
+
+// FETCH WORKERS
+async function fetchWorkers(){
+  if(!SCRIPT_URL||SCRIPT_URL.includes('YOUR_')){
+    workerList=[
+      {name:"Arjun Verma",   id:"W001",trade:"Mason"},
+      {name:"Suresh Yadav",  id:"W002",trade:"Welder"},
+      {name:"Mukesh Patel",  id:"W003",trade:"Carpenter"},
+      {name:"Deepak Sharma", id:"W004",trade:"Helper"},
+      {name:"Rahul Gupta",   id:"W005",trade:"Electrician"},
+      {name:"Santosh Kumar", id:"W006",trade:"Plumber"},
+      {name:"Vikram Singh",  id:"W007",trade:"Painter"},
+      {name:"Ramesh Tiwari", id:"W008",trade:"Helper"},
+      {name:"Ajay Mishra",   id:"W009",trade:"Fitter"},
+      {name:"Pawan Joshi",   id:"W010",trade:"Mason"},
+    ];
+    showToast('Demo mode – sample workers loaded','info');
+    return;
+  }
+  document.getElementById('workerLoader').classList.add('show');
+  try{
+    const url=`${SCRIPT_URL}?action=getWorkers&site=${encodeURIComponent(currentSup.site)}`;
+    // Use no-cors redirect-follow so Google Apps Script CORS works from GitHub Pages
+    const res=await fetch(url, {redirect:'follow'});
+    const text=await res.text();
+    // Strip any JSONP wrapper if present, then parse
+    const json=text.replace(/^[^{]*/,'').replace(/[^}]*$/,'');
+    const data=JSON.parse(json.trim()||text.trim());
+    if(data.workers&&data.workers.length>0){
+      workerList=data.workers;
+      showToast(`${workerList.length} workers loaded ✓`,'success');
+    }else if(data.error){
+      showToast('Sheet error: '+data.error,'error');
+      console.error(data.error);
+    }else{
+      showToast('No workers found for this site – check Sheet','info');
+    }
+  }catch(e){
+    showToast('Could not load workers. Check Apps Script URL & deployment.','error');
+    console.error('fetchWorkers error:',e);
+  }finally{
+    document.getElementById('workerLoader').classList.remove('show');
+  }
+}
+
+// SEARCH
+function onSearch(){
+  const q=document.getElementById('workerSearch').value.trim().toLowerCase();
+  const dd=document.getElementById('dropdown');
+  if(!q||!workerList.length){dd.classList.remove('open');return;}
+  const matches=workerList.filter(w=>
+    w.name.toLowerCase().includes(q)||(w.id&&w.id.toLowerCase().includes(q))
+  ).slice(0,12);
+  if(!matches.length){
+    dd.innerHTML=`<div class="drop-empty">No worker found for "${q}"</div>`;
+  }else{
+    dd.innerHTML=matches.map(w=>{
+      const col=colFor(w.name);
+      const hl=txt=>txt.replace(new RegExp(`(${q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')})`, 'gi'),
+        '<mark style="background:rgba(79,142,247,.3);color:inherit;border-radius:3px;padding:0 1px">$1</mark>');
+      return `<div class="drop-item" onclick='selectWorker(${JSON.stringify(w)})'>
+        <div class="drop-avatar ${col}">${w.name[0].toUpperCase()}</div>
+        <div>
+          <div class="drop-name">${hl(w.name)}</div>
+          <div class="drop-meta">${w.id||'—'} · ${w.trade||'—'}</div>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  dd.classList.add('open');
+}
+
+function clearSearch(){
+  document.getElementById('workerSearch').value='';
+  document.getElementById('dropdown').classList.remove('open');
+}
+
+function selectWorker(w){
+  selectedWorker=w;
+  document.getElementById('workerSearch').value=w.name;
+  document.getElementById('dropdown').classList.remove('open');
+  const col=colFor(w.name);
+  document.getElementById('wcAvatar').textContent=w.name[0].toUpperCase();
+  document.getElementById('wcAvatar').className=`wc-avatar ${col}`;
+  document.getElementById('wcName').textContent=w.name;
+  document.getElementById('wcSub').textContent=`${w.id||'No ID'} · ${w.trade||'No trade'}`;
+  document.getElementById('workerCard').classList.add('show');
+  document.getElementById('btnIn').disabled=false;
+  document.getElementById('btnOut').disabled=false;
+}
+
+function clearWorker(){
+  selectedWorker=null; clearSearch();
+  document.getElementById('workerCard').classList.remove('show');
+  document.getElementById('btnIn').disabled=true;
+  document.getElementById('btnOut').disabled=true;
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.search-wrap'))
+    document.getElementById('dropdown').classList.remove('open');
+});
+
+// MARK ATTENDANCE
+async function markAttendance(type){
+  if(!selectedWorker)return;
+  const now=new Date();
+  const timeStr=now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit',hour12:true});
+  const dateStr=now.toLocaleDateString('en-IN',{day:'2-digit',month:'2-digit',year:'numeric'});
+  const record={
+    action:'markAttendance', date:dateStr, time:timeStr, timestamp:now.toISOString(),
+    workerName:selectedWorker.name, workerId:selectedWorker.id||'',
+    trade:selectedWorker.trade||'', type,
+    supervisor:currentSup.name, site:currentSup.site,
+  };
+  const btnIn=document.getElementById('btnIn');
+  const btnOut=document.getElementById('btnOut');
+  const btn=type==='IN'?btnIn:btnOut;
+  const orig=btn.innerHTML;
+  btnIn.disabled=btnOut.disabled=true;
+  btn.innerHTML=`<span class="saving-wrap"><span class="btn-spin"></span>Saving…</span>`;
+  let saved=false;
+  if(SCRIPT_URL&&!SCRIPT_URL.includes('YOUR_')){
+    try{
+      // Send as URL-encoded params to avoid CORS preflight
+      const params=new URLSearchParams({data:JSON.stringify(record)});
+      await fetch(SCRIPT_URL,{method:'POST',mode:'no-cors',body:params});
+      saved=true;
+    }catch(e){console.error(e);}
+  }else{
+    await new Promise(r=>setTimeout(r,600));
+    saved=true;
+  }
+  btn.innerHTML=orig;
+  if(saved){
+    showToast(`${type==='IN'?'✅':'🚪'} ${type} recorded for ${selectedWorker.name}`,'success');
+    addToLog(record); clearWorker();
+  }else{
+    showToast('Save failed – check connection','error');
+    if(selectedWorker){btnIn.disabled=btnOut.disabled=false;}
+  }
+}
+
+function addToLog(r){
+  todayLog.unshift(r);
+  document.getElementById('logCount').textContent=todayLog.length;
+  document.getElementById('logList').innerHTML=todayLog.map(e=>`
+    <div class="log-row">
+      <span class="log-badge ${e.type==='IN'?'badge-in':'badge-out'}">${e.type}</span>
+      <span class="log-name">${e.workerName}</span>
+      <span class="log-time">${e.time}</span>
+    </div>`).join('');
+}
+
+// TOAST
+function showToast(msg,type='info'){
+  const wrap=document.getElementById('toastContainer');
+  const el=document.createElement('div');
+  el.className=`toast ${type}`; el.textContent=msg;
+  wrap.appendChild(el);
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('show')));
+  setTimeout(()=>{el.classList.remove('show');setTimeout(()=>el.remove(),400);},3000);
+}
+</script>
+</body>
+</html>
