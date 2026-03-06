@@ -277,11 +277,10 @@ body::before {
       <label>Password</label>
       <div style="position:relative;">
         <input type="password" id="password" placeholder="Enter your password" style="padding-right:52px;width:100%;">
-        <button type="button" onclick="togglePwd()"
-          id="pwdEye"
+        <button type="button" id="pwdEye" onclick="togglePwd()"
           style="position:absolute;right:12px;top:50%;transform:translateY(-50%);
                  background:none;border:none;cursor:pointer;font-size:20px;
-                 line-height:1;padding:4px;color:#6b7280;">👁</button>
+                 line-height:1;padding:4px;color:#6b7280;z-index:2;">👁</button>
       </div>
     </div>
     <div class="field">
@@ -296,8 +295,8 @@ body::before {
     </div>
     <button class="btn-login" onclick="doLogin()">Login →</button>
     <div class="demo-note">
-      <strong>Demo:</strong> username <strong>sup1</strong> · password <strong>1234</strong><br>
-      Workers load automatically from your Google Sheet once URL is set.
+      Logins: <strong>sup1</strong>, <strong>sup2</strong>, <strong>sup3</strong>, <strong>admin</strong><br>
+      Workers load automatically from your Google Sheet.
     </div>
   </div>
 </div>
@@ -321,7 +320,13 @@ body::before {
     </div>
 
     <div class="search-outer">
-      <div class="section-label">Search &amp; Select Worker</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="section-label" style="margin:0">Search &amp; Select Worker</div>
+        <button id="refreshBtn" onclick="fetchWorkers(true)"
+          style="background:rgba(79,142,247,.12);border:1px solid rgba(79,142,247,.3);
+                 color:#4f8ef7;border-radius:8px;padding:5px 12px;font-size:12px;
+                 font-weight:700;cursor:pointer;font-family:inherit;">⟳ Refresh List</button>
+      </div>
       <div class="search-wrap">
         <input class="search-input" type="text" id="workerSearch"
           placeholder="Type worker name or ID…"
@@ -449,7 +454,7 @@ function doLogout(){
 }
 
 // FETCH WORKERS
-async function fetchWorkers(){
+async function fetchWorkers(isRefresh){
   if(!SCRIPT_URL||SCRIPT_URL.includes('YOUR_')){
     workerList=[
       {name:"Arjun Verma",   id:"W001",trade:"Mason"},
@@ -466,26 +471,31 @@ async function fetchWorkers(){
     showToast('Demo mode – sample workers loaded','info');
     return;
   }
-  document.getElementById('workerLoader').classList.add('show');
-  let loaded = false;
+  const loader=document.getElementById('workerLoader');
+  const refreshBtn=document.getElementById('refreshBtn');
+  loader.classList.add('show');
+  if(refreshBtn){refreshBtn.disabled=true;refreshBtn.textContent='⟳ Loading…';}
+  let loaded=false;
   try{
-    const url=`${SCRIPT_URL}?action=getWorkers&site=${encodeURIComponent(currentSup.site)}`;
-    const res=await fetch(url, {redirect:'follow'});
+    const url=`${SCRIPT_URL}?action=getWorkers&site=`;
+    const res=await fetch(url,{redirect:'follow'});
     const text=await res.text();
     const data=JSON.parse(text);
     if(data.workers&&data.workers.length>0){
       workerList=data.workers;
-      showToast(`${workerList.length} workers loaded from Sheet ✓`,'success');
+      showToast((isRefresh?'Refreshed – ':'')+workerList.length+' workers loaded ✓','success');
       loaded=true;
     }else if(data.error){
-      console.warn('Sheet error:',data.error);
+      showToast('Sheet error: '+data.error,'error');
+    }else{
+      showToast('No workers found in Sheet','info');
     }
   }catch(e){
-    console.warn('fetchWorkers failed (CORS or network):',e.message);
+    console.warn('fetchWorkers error:',e.message);
   }finally{
-    document.getElementById('workerLoader').classList.remove('show');
+    loader.classList.remove('show');
+    if(refreshBtn){refreshBtn.disabled=false;refreshBtn.textContent='⟳ Refresh List';}
   }
-  // Always fall back to demo list so search works even if Sheet fetch fails
   if(!loaded){
     workerList=[
       {name:"Arjun Verma",   id:"W001",trade:"Mason"},
@@ -499,7 +509,7 @@ async function fetchWorkers(){
       {name:"Ajay Mishra",   id:"W009",trade:"Fitter"},
       {name:"Pawan Joshi",   id:"W010",trade:"Mason"},
     ];
-    showToast('Using demo worker list (Sheet not connected yet)','info');
+    showToast('Using demo list – Sheet not connected','info');
   }
 }
 
@@ -622,5 +632,4 @@ function showToast(msg,type='info'){
 }
 </script>
 </body>
-</html>
 </html>
